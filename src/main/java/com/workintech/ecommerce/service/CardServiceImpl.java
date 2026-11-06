@@ -5,12 +5,14 @@ import com.workintech.ecommerce.dto.CardResponse;
 import com.workintech.ecommerce.dto.CardUpdateRequest;
 import com.workintech.ecommerce.entity.Card;
 import com.workintech.ecommerce.repository.CardRepository;
+import com.workintech.ecommerce.exceptions.RecordNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CardServiceImpl implements CardService {
@@ -45,8 +47,17 @@ public class CardServiceImpl implements CardService {
 
     @Override
     @Transactional
-    public void delete(Long userId, Long cardId) {
-        cardRepository.delete(findOwned(userId, cardId));
+    public void delete(Long userId, String cardId) {
+        cardRepository.delete(toId(cardId).flatMap(id -> cardRepository.findByIdAndUserId(id, userId))
+            .orElseThrow(() -> new RecordNotFoundException("There is no card record found by id: " + cardId)));
+    }
+
+    private Optional<Long> toId(String value) {
+        try {
+            return Optional.of(Long.valueOf(value));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
     }
 
     private Card findOwned(Long userId, Long cardId) {

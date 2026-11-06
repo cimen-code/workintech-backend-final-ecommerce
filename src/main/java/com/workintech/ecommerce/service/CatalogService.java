@@ -10,7 +10,7 @@ public interface CatalogService {
 
     List<CategoryResponse> findCategories();
 
-    ProductListResponse findProducts(Long category, String filter, String sort, int limit, long offset);
+    ProductListResponse findProducts(String category, String filter, String sort, String limit, String offset);
 
     ProductResponse findProduct(Long id);
 }

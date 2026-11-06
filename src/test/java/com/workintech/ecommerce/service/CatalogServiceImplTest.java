@@ -9,13 +9,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
@@ -28,35 +28,46 @@ class CatalogServiceImplTest {
 
     @Test
     void defaultSortIsId() {
-        assertEquals(Sort.by("id"), service.parseSort(null));
-        assertEquals(Sort.by("id"), service.parseSort(" "));
+        assertEquals("id ASC", service.orderBy(null));
+        assertEquals("id ASC", service.orderBy(" "));
     }
 
     @Test
-    void parsesSortValuesFromCard() {
-        assertEquals(Sort.Direction.DESC, service.parseSort("price:desc").getOrderFor("price").getDirection());
-        assertEquals(Sort.Direction.ASC, service.parseSort("price:asc").getOrderFor("price").getDirection());
-        assertEquals(Sort.Direction.DESC, service.parseSort("rating:desc").getOrderFor("rating").getDirection());
-        assertEquals(Sort.Direction.ASC, service.parseSort("rating:asc").getOrderFor("rating").getDirection());
+    void parsesSortValues() {
+        assertEquals("price DESC, id ASC", service.orderBy("price:desc"));
+        assertEquals("price ASC, id ASC", service.orderBy("price:asc"));
+        assertEquals("rating DESC, id ASC", service.orderBy("rating:desc"));
+        assertEquals("rating ASC, id ASC", service.orderBy("rating:asc"));
+        assertEquals("price ASC, id ASC", service.orderBy("price"));
+        assertEquals("price ASC, id ASC", service.orderBy("price:up"));
+        assertEquals("price DESC, id ASC", service.orderBy("price:DESC"));
+        assertEquals("id DESC", service.orderBy("id:desc"));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"abc", "price", "name:asc", "price:up"})
-    void rejectsUnknownSort(String sort) {
+    @ValueSource(strings = {"abc", "abc:asc", ":asc", "images:asc"})
+    void rejectsUnknownSortColumn(String sort) {
         ResponseStatusException exception =
-            assertThrows(ResponseStatusException.class, () -> service.parseSort(sort));
+            assertThrows(ResponseStatusException.class, () -> service.orderBy(sort));
         assertEquals(HttpStatus.BAD_REQUEST.value(), exception.getStatusCode().value());
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1, 1001})
-    void rejectsLimitOutOfRange(int limit) {
-        assertThrows(ResponseStatusException.class, () -> service.findProducts(null, null, null, limit, 0));
+    @Test
+    void parsesLimit() {
+        assertEquals(25, service.parseLimit(null));
+        assertEquals(25, service.parseLimit(""));
+        assertEquals(0, service.parseLimit("0"));
+        assertEquals(1, service.parseLimit("1.5"));
+        assertNull(service.parseLimit("abc"));
+        assertNull(service.parseLimit("-1"));
     }
 
     @Test
-    void rejectsNegativeOffset() {
-        assertThrows(ResponseStatusException.class, () -> service.findProducts(null, null, null, 25, -1));
+    void parsesOffset() {
+        assertEquals(0, service.parseOffset(null));
+        assertEquals(0, service.parseOffset("abc"));
+        assertEquals(12, service.parseOffset("12.5"));
+        assertThrows(ResponseStatusException.class, () -> service.parseOffset("-1"));
     }
 
     @Test

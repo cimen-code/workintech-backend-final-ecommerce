@@ -197,9 +197,25 @@ class ApiFlowIT {
     }
 
     @Test
-    void filterTreatsPercentAsPlainText() throws Exception {
-        int total = read(get("/products").param("filter", "%100").param("limit", "1"), 200).get("total").asInt();
-        assertTrue(total > 0 && total < 587);
+    void filterFollowsWorkintechRules() throws Exception {
+        assertEquals(12, total("%100"));
+        assertEquals(587, total("_"));
+        assertEquals(113, total("siyah "));
+        assertEquals(11, total("Ş"));
+    }
+
+    private int total(String filter) throws Exception {
+        return read(get("/products").param("filter", filter).param("limit", "1"), 200).get("total").asInt();
+    }
+
+    @Test
+    void catalogParametersFollowWorkintechRules() throws Exception {
+        assertEquals(587, read(get("/products?limit=abc"), 200).get("products").size());
+        assertEquals(0, read(get("/products?limit=0"), 200).get("products").size());
+        assertEquals(1, read(get("/products?limit=1.5"), 200).get("products").size());
+        assertEquals(0, read(get("/products?category=abc"), 200).get("total").asInt());
+        assertEquals(14, read(get("/products?offset=12.5"), 200).get("products").get(0).get("id").asInt());
+        assertEquals(78, read(get("/products?sort=price"), 200).get("products").get(0).get("id").asInt());
     }
 
     @Test
@@ -207,10 +223,23 @@ class ApiFlowIT {
         read(get("/products/99999999"), 404);
         read(get("/products/abc"), 400);
         read(get("/products?sort=abc"), 400);
-        read(get("/products?limit=abc"), 400);
-        read(get("/products?limit=0"), 400);
         read(get("/products?offset=-1"), 400);
-        read(get("/products?category=abc"), 400);
+    }
+
+    @Test
+    void deletingMissingRecordAnswersLikeWorkintech() throws Exception {
+        String token = newUserToken();
+        assertEquals("There is no address record found by id 99999999",
+            read(delete("/user/address/99999999").header(HttpHeaders.AUTHORIZATION, token), 403).get("error").asText());
+        assertEquals("There is no address record found by id abc",
+            read(delete("/user/address/abc").header(HttpHeaders.AUTHORIZATION, token), 403).get("error").asText());
+        assertEquals("There is no card record found by id: 99999999",
+            read(delete("/user/card/99999999").header(HttpHeaders.AUTHORIZATION, token), 403).get("error").asText());
+    }
+
+    @Test
+    void unknownPathIsNotFound() throws Exception {
+        read(get("/nope"), 404);
     }
 
     // ---------------- Giris ----------------
@@ -321,7 +350,7 @@ class ApiFlowIT {
         assertEquals(1, list.size());
         assertEquals("iş adresi", list.get(0).get("title").asText());
 
-        read(delete("/user/address/" + id).header(HttpHeaders.AUTHORIZATION, token), 204);
+        read(delete("/user/address/" + id).header(HttpHeaders.AUTHORIZATION, token), 200);
         assertEquals(0, read(get("/user/address").header(HttpHeaders.AUTHORIZATION, token), 200).size());
     }
 
@@ -350,7 +379,7 @@ class ApiFlowIT {
         Map<String, Object> update = addressBody();
         update.put("id", id);
         read(jsonRequest(put("/user/address"), update).header(HttpHeaders.AUTHORIZATION, other), 404);
-        read(delete("/user/address/" + id).header(HttpHeaders.AUTHORIZATION, other), 404);
+        read(delete("/user/address/" + id).header(HttpHeaders.AUTHORIZATION, other), 403);
         assertEquals(0, read(get("/user/address").header(HttpHeaders.AUTHORIZATION, other), 200).size());
         assertEquals(1, read(get("/user/address").header(HttpHeaders.AUTHORIZATION, owner), 200).size());
     }
@@ -373,7 +402,7 @@ class ApiFlowIT {
         assertEquals("Ahmet Taş", updated.get("name_on_card").asText());
 
         assertEquals(1, read(get("/user/card").header(HttpHeaders.AUTHORIZATION, token), 200).size());
-        read(delete("/user/card/" + id).header(HttpHeaders.AUTHORIZATION, token), 204);
+        read(delete("/user/card/" + id).header(HttpHeaders.AUTHORIZATION, token), 200);
         assertEquals(0, read(get("/user/card").header(HttpHeaders.AUTHORIZATION, token), 200).size());
     }
 
@@ -392,7 +421,7 @@ class ApiFlowIT {
         long id = read(jsonRequest(post("/user/card"), Map.of("card_no", "4111111111111111",
             "expire_month", 12, "expire_year", 2030, "name_on_card", "Ali"))
             .header(HttpHeaders.AUTHORIZATION, owner), 201).get("id").asLong();
-        read(delete("/user/card/" + id).header(HttpHeaders.AUTHORIZATION, newUserToken()), 404);
+        read(delete("/user/card/" + id).header(HttpHeaders.AUTHORIZATION, newUserToken()), 403);
     }
 
     // ---------------- Siparis ----------------
@@ -418,27 +447,23 @@ class ApiFlowIT {
         assertEquals("Ali Baş", order.get("card_name").asText());
 
         JsonNode item = order.get("products").get(0);
-        assertEquals(254, item.get("product_id").asInt());
+        assertEquals(254, item.get("id").asInt());
         assertEquals("Kadın Siyah Zincirli", item.get("name").asText());
         assertEquals(449.0, item.get("price").asDouble());
         assertEquals(2, item.get("count").asInt());
-        assertEquals("siyah - lg", item.get("detail").asText());
+        assertTrue(item.hasNonNull("description"));
         assertFalse(item.get("images").isEmpty());
     }
 
     @Test
-    void orderNeverExposesCardNumberOrCcv() throws Exception {
+    void orderKeepsCardDetailsButNeverCcv() throws Exception {
         String token = newUserToken();
         JsonNode created = read(jsonRequest(post("/order"), orderBody(createAddress(token)))
             .header(HttpHeaders.AUTHORIZATION, token), 201);
-        assertFalse(created.has("card_no"));
+        assertEquals(4111111111111111L, created.get("card_no").asLong());
+        assertTrue(created.hasNonNull("card_expire_month"));
+        assertTrue(created.hasNonNull("user_id"));
         assertFalse(created.has("card_ccv"));
-        assertFalse(created.toString().contains("4111111111111111"));
-
-        Number stored = (Number) entityManager
-            .createNativeQuery("select count(*) from orders where card_last4 = '1111' and id = :id")
-            .setParameter("id", created.get("id").asLong()).getSingleResult();
-        assertEquals(1, stored.intValue());
     }
 
     @Test
@@ -478,13 +503,13 @@ class ApiFlowIT {
 
         entityManager.flush();
         entityManager.clear();
-        read(delete("/user/address/" + addressId).header(HttpHeaders.AUTHORIZATION, token), 204);
+        read(delete("/user/address/" + addressId).header(HttpHeaders.AUTHORIZATION, token), 200);
         entityManager.flush();
         entityManager.clear();
 
         JsonNode orders = read(get("/order").header(HttpHeaders.AUTHORIZATION, token), 200);
         assertEquals(1, orders.size());
-        assertTrue(orders.get(0).get("address_id").isNull());
+        assertEquals(addressId, orders.get(0).get("address_id").asLong());
     }
 
     // ---------------- CORS ----------------

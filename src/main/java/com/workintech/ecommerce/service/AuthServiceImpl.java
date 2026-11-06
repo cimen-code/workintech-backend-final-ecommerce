@@ -101,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private AuthResponse toResponse(User user) {
-        return new AuthResponse(user.getName(), user.getEmail(), user.getRole().getId(),
+        return new AuthResponse(user.getName(), user.getEmail(), String.valueOf(user.getRole().getId()),
             jwtService.generate(user.getId()));
     }
 

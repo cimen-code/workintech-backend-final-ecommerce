@@ -5,11 +5,10 @@ import java.util.List;
 
 public record OrderItemResponse(
     Long id,
-    Long productId,
     String name,
-    List<ImageResponse> images,
+    String description,
     BigDecimal price,
     Integer count,
-    String detail
+    List<ImageResponse> images
 ) {
 }

@@ -30,7 +30,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         objectMapper.writeValue(response.getWriter(),
-            new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), message(request)));
+            new ErrorResponse(message(request)));
     }
 
     private String message(HttpServletRequest request) {

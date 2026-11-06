@@ -26,11 +26,11 @@ public class CatalogController {
     }
 
     @GetMapping("/products")
-    public ProductListResponse products(@RequestParam(required = false) Long category,
+    public ProductListResponse products(@RequestParam(required = false) String category,
                                         @RequestParam(required = false) String filter,
                                         @RequestParam(required = false) String sort,
-                                        @RequestParam(defaultValue = "25") int limit,
-                                        @RequestParam(defaultValue = "0") long offset) {
+                                        @RequestParam(required = false) String limit,
+                                        @RequestParam(required = false) String offset) {
         return catalogService.findProducts(category, filter, sort, limit, offset);
     }
 

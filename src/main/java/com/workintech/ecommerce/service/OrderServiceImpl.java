@@ -37,8 +37,8 @@ public class OrderServiceImpl implements OrderService {
         addressRepository.findByIdAndUserId(request.addressId(), userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Address not found"));
 
-        // card_ccv dogrulanir ama hicbir yere yazilmaz; kart numarasinin yalniz son 4 hanesi tutulur.
-        Order order = new Order(userId, request.addressId(), request.orderDate(), lastFour(request.cardNo()),
+        // card_ccv dogrulanir ama hicbir yere yazilmaz.
+        Order order = new Order(userId, request.addressId(), request.orderDate(), request.cardNo(),
             request.cardName(), request.cardExpireMonth(), request.cardExpireYear(), request.price());
 
         for (OrderItemRequest item : request.products()) {
@@ -53,25 +53,21 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponse> findAll(Long userId) {
-        return orderRepository.findByUserIdOrderByOrderDateDescIdDesc(userId).stream()
+        return orderRepository.findByUserIdOrderByIdAsc(userId).stream()
             .map(this::toResponse)
             .toList();
     }
 
-    private String lastFour(Long cardNo) {
-        String digits = String.valueOf(Math.abs(cardNo));
-        return digits.substring(Math.max(0, digits.length() - 4));
-    }
-
     private OrderResponse toResponse(Order order) {
         List<OrderItemResponse> products = order.getItems().stream().map(this::toResponse).toList();
-        return new OrderResponse(order.getId(), order.getOrderDate(), order.getPrice(), order.getAddressId(),
-            order.getCardName(), products);
+        return new OrderResponse(order.getId(), order.getUserId(), order.getAddressId(), order.getOrderDate(),
+            order.getCardNo(), order.getCardName(), order.getCardExpireMonth(), order.getCardExpireYear(),
+            order.getPrice(), products);
     }
 
     private OrderItemResponse toResponse(OrderItem item) {
         Product product = item.getProduct();
-        return new OrderItemResponse(product.getId(), product.getId(), product.getName(),
-            ProductMapper.images(product), item.getUnitPrice(), item.getCount(), item.getDetail());
+        return new OrderItemResponse(product.getId(), product.getName(), product.getDescription(),
+            item.getUnitPrice(), item.getCount(), ProductMapper.images(product));
     }
 }

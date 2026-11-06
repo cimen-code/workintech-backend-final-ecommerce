@@ -6,6 +6,7 @@ import com.workintech.ecommerce.entity.Address;
 import com.workintech.ecommerce.entity.Card;
 import com.workintech.ecommerce.repository.AddressRepository;
 import com.workintech.ecommerce.repository.CardRepository;
+import com.workintech.ecommerce.exceptions.RecordNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -49,7 +50,7 @@ class AddressAndCardServiceTest {
         when(addressRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.empty());
         AddressServiceImpl service = new AddressServiceImpl(addressRepository);
 
-        assertThrows(ResponseStatusException.class, () -> service.delete(1L, 5L));
+        assertThrows(RecordNotFoundException.class, () -> service.delete(1L, "5"));
         verify(addressRepository, never()).delete(any(Address.class));
     }
 
@@ -66,7 +67,7 @@ class AddressAndCardServiceTest {
         when(cardRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.empty());
         CardServiceImpl service = new CardServiceImpl(cardRepository);
 
-        assertThrows(ResponseStatusException.class, () -> service.delete(1L, 5L));
+        assertThrows(RecordNotFoundException.class, () -> service.delete(1L, "5"));
         verify(cardRepository, never()).delete(any(Card.class));
     }
 }

@@ -6,6 +6,8 @@ import com.workintech.ecommerce.dto.CardUpdateRequest;
 import com.workintech.ecommerce.service.CardService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,8 +48,8 @@ public class CardController {
     }
 
     @DeleteMapping("/{cardId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@AuthenticationPrincipal Long userId, @PathVariable Long cardId) {
+    public ResponseEntity<String> delete(@AuthenticationPrincipal Long userId, @PathVariable String cardId) {
         cardService.delete(userId, cardId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("\"Credit card record deleted!\"");
     }
 }

@@ -58,9 +58,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/signup", "/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/roles", "/categories", "/products", "/products/*").permitAll()
-                .anyRequest().authenticated())
+                .requestMatchers("/verify", "/user/**", "/order", "/order/**").authenticated()
+                .anyRequest().permitAll())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -6,10 +6,14 @@ import java.util.List;
 
 public record OrderResponse(
     Long id,
-    LocalDateTime orderDate,
-    BigDecimal price,
+    Long userId,
     Long addressId,
+    LocalDateTime orderDate,
+    Long cardNo,
     String cardName,
+    Integer cardExpireMonth,
+    Integer cardExpireYear,
+    BigDecimal price,
     List<OrderItemResponse> products
 ) {
 }

@@ -14,5 +14,5 @@ public interface AddressService {
 
     AddressResponse update(Long userId, AddressUpdateRequest request);
 
-    void delete(Long userId, Long addressId);
+    void delete(Long userId, String addressId);
 }

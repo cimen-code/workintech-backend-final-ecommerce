@@ -14,5 +14,5 @@ public interface CardService {
 
     CardResponse update(Long userId, CardUpdateRequest request);
 
-    void delete(Long userId, Long cardId);
+    void delete(Long userId, String cardId);
 }

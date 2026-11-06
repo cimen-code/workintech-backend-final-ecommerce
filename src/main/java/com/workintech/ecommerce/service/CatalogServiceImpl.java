@@ -7,26 +7,49 @@ import com.workintech.ecommerce.entity.Category;
 import com.workintech.ecommerce.entity.Product;
 import com.workintech.ecommerce.repository.CategoryRepository;
 import com.workintech.ecommerce.repository.ProductRepository;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.domain.Page;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class CatalogServiceImpl implements CatalogService {
 
-    private static final int MAX_LIMIT = 1000;
+    private static final int DEFAULT_LIMIT = 25;
+
+    // Sort edilebilen kolonlar. Metin kolonlari bayt sirasina gore siralanir.
+    private static final Map<String, String> SORT_COLUMNS = Map.of(
+        "id", "id",
+        "name", "name COLLATE \"C\"",
+        "description", "description COLLATE \"C\"",
+        "price", "price",
+        "stock", "stock",
+        "store_id", "store_id",
+        "category_id", "category_id",
+        "rating", "rating",
+        "sell_count", "sell_count");
+
+    // Arama yalniz ASCII harflerde buyuk kucuk ayirmaz; % ve _ joker sayilir.
+    private static final String ASCII_LOWER =
+        "translate(%s, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')";
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public CatalogServiceImpl(CategoryRepository categoryRepository, ProductRepository productRepository) {
         this.categoryRepository = categoryRepository;
@@ -41,17 +64,46 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProductListResponse findProducts(Long category, String filter, String sort, int limit, long offset) {
-        if (limit < 1 || limit > MAX_LIMIT) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be between 1 and " + MAX_LIMIT);
+    public ProductListResponse findProducts(String category, String filter, String sort, String limit, String offset) {
+        String orderBy = orderBy(sort);
+        long firstRow = parseOffset(offset);
+        Integer maxRows = parseLimit(limit);
+
+        List<String> conditions = new ArrayList<>();
+        Map<String, Object> parameters = new HashMap<>();
+        if (category != null && !category.isBlank()) {
+            Long categoryId = wholeNumber(category.trim());
+            if (categoryId == null) {
+                return new ProductListResponse(List.of(), 0);
+            }
+            conditions.add("category_id = :category");
+            parameters.put("category", categoryId);
         }
-        if (offset < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "offset must not be negative");
+        if (filter != null && !filter.isEmpty()) {
+            String pattern = ASCII_LOWER.formatted(":pattern");
+            conditions.add("(" + ASCII_LOWER.formatted("name") + " LIKE " + pattern
+                + " OR " + ASCII_LOWER.formatted("description") + " LIKE " + pattern + ")");
+            parameters.put("pattern", "%" + filter.replace("\\", "\\\\") + "%");
         }
-        OffsetPageRequest page = new OffsetPageRequest(offset, limit, parseSort(sort));
-        Page<Product> result = productRepository.findAll(matching(category, filter), page);
-        return new ProductListResponse(result.getContent().stream().map(ProductMapper::toResponse).toList(),
-            result.getTotalElements());
+        String where = conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
+
+        Query count = entityManager.createNativeQuery("SELECT count(*) FROM products" + where);
+        parameters.forEach(count::setParameter);
+        long total = ((Number) count.getSingleResult()).longValue();
+
+        if (maxRows != null && maxRows == 0) {
+            return new ProductListResponse(List.of(), total);
+        }
+        Query list = entityManager.createNativeQuery(
+            "SELECT * FROM products" + where + " ORDER BY " + orderBy, Product.class);
+        parameters.forEach(list::setParameter);
+        list.setFirstResult(Math.toIntExact(firstRow));
+        if (maxRows != null) {
+            list.setMaxResults(maxRows);
+        }
+        @SuppressWarnings("unchecked")
+        List<Product> products = list.getResultList();
+        return new ProductListResponse(products.stream().map(ProductMapper::toResponse).toList(), total);
     }
 
     @Override
@@ -62,39 +114,61 @@ public class CatalogServiceImpl implements CatalogService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
     }
 
-    // sort degerleri T14 kartindaki gibi: price:asc, price:desc, rating:asc, rating:desc
-    Sort parseSort(String sort) {
-        Sort byId = Sort.by("id");
+    // "kolon" ya da "kolon:yon". Yon desc degilse artan siralanir.
+    String orderBy(String sort) {
         if (sort == null || sort.isBlank()) {
-            return byId;
+            return "id ASC";
         }
-        return switch (sort) {
-            case "price:asc" -> Sort.by(Sort.Direction.ASC, "price").and(byId);
-            case "price:desc" -> Sort.by(Sort.Direction.DESC, "price").and(byId);
-            case "rating:asc" -> Sort.by(Sort.Direction.ASC, "rating").and(byId);
-            case "rating:desc" -> Sort.by(Sort.Direction.DESC, "rating").and(byId);
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort value");
-        };
+        String[] parts = sort.split(":", 2);
+        String column = SORT_COLUMNS.get(parts[0]);
+        if (column == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sort value");
+        }
+        boolean descending = parts.length > 1 && "desc".equals(parts[1].toLowerCase(Locale.ROOT));
+        String direction = descending ? "DESC" : "ASC";
+        return "id".equals(parts[0]) ? "id " + direction : column + " " + direction + ", id ASC";
     }
 
-    private Specification<Product> matching(Long category, String filter) {
-        return (root, query, cb) -> {
-            List<Predicate> conditions = new ArrayList<>();
-            if (category != null) {
-                conditions.add(cb.equal(root.get("category").get("id"), category));
-            }
-            if (filter != null && !filter.isBlank()) {
-                String pattern = "%" + escapeLike(filter.trim().toLowerCase(Locale.ROOT)) + "%";
-                conditions.add(cb.or(
-                    cb.like(cb.lower(root.get("name")), pattern, '\\'),
-                    cb.like(cb.lower(root.get("description")), pattern, '\\')));
-            }
-            return cb.and(conditions.toArray(new Predicate[0]));
-        };
+    // Verilmezse 25, sayi degilse ya da negatifse sinirsiz, ondalikliysa tam kismi.
+    Integer parseLimit(String limit) {
+        if (limit == null || limit.isBlank()) {
+            return DEFAULT_LIMIT;
+        }
+        BigDecimal value = number(limit);
+        if (value == null || value.signum() < 0) {
+            return null;
+        }
+        BigInteger whole = value.toBigInteger();
+        return whole.bitLength() < Integer.SIZE - 1 ? whole.intValue() : null;
     }
 
-    private String escapeLike(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    // Verilmezse ya da sayi degilse 0, ondalikliysa tam kismi.
+    long parseOffset(String offset) {
+        BigDecimal value = offset == null ? null : number(offset);
+        if (value == null) {
+            return 0;
+        }
+        if (value.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "offset must not be negative");
+        }
+        BigInteger whole = value.toBigInteger();
+        return whole.bitLength() < Integer.SIZE - 1 ? whole.longValue() : Integer.MAX_VALUE;
+    }
+
+    private BigDecimal number(String text) {
+        try {
+            return new BigDecimal(text.trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private Long wholeNumber(String text) {
+        try {
+            return Long.valueOf(text);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     private CategoryResponse toResponse(Category category) {

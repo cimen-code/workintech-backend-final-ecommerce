@@ -131,7 +131,7 @@ class AuthServiceImplTest {
         AuthResponse response = service.login(new LoginRequest("Customer@commerce.com", "secret"));
 
         assertEquals("Cust Omer", response.name());
-        assertEquals(3L, response.roleId());
+        assertEquals("3", response.roleId());
         assertEquals("token-value", response.token());
     }
 

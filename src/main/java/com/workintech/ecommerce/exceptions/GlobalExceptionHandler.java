@@ -17,6 +17,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,6 +29,11 @@ public class GlobalExceptionHandler {
         int status = exception.getStatusCode().value();
         String message = exception.getReason() == null ? "Request failed" : exception.getReason();
         return respond(status, message);
+    }
+
+    @ExceptionHandler(RecordNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleMissingRecord(RecordNotFoundException exception) {
+        return ResponseEntity.status(403).body(Map.of("error", exception.getMessage()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
@@ -46,7 +53,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMethod(HttpRequestMethodNotSupportedException exception) {
-        return respond(405, "Method not allowed");
+        return respond(404, "Not found");
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -71,6 +78,6 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> respond(int status, String message) {
-        return ResponseEntity.status(status).body(new ErrorResponse(status, message));
+        return ResponseEntity.status(status).body(new ErrorResponse(message));
     }
 }

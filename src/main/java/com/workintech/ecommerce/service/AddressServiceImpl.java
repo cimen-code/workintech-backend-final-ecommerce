@@ -5,12 +5,14 @@ import com.workintech.ecommerce.dto.AddressResponse;
 import com.workintech.ecommerce.dto.AddressUpdateRequest;
 import com.workintech.ecommerce.entity.Address;
 import com.workintech.ecommerce.repository.AddressRepository;
+import com.workintech.ecommerce.exceptions.RecordNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AddressServiceImpl implements AddressService {
@@ -47,8 +49,17 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     @Transactional
-    public void delete(Long userId, Long addressId) {
-        addressRepository.delete(findOwned(userId, addressId));
+    public void delete(Long userId, String addressId) {
+        addressRepository.delete(toId(addressId).flatMap(id -> addressRepository.findByIdAndUserId(id, userId))
+            .orElseThrow(() -> new RecordNotFoundException("There is no address record found by id " + addressId)));
+    }
+
+    private Optional<Long> toId(String value) {
+        try {
+            return Optional.of(Long.valueOf(value));
+        } catch (NumberFormatException exception) {
+            return Optional.empty();
+        }
     }
 
     // Baskasinin kaydi "bulunamadi" doner; boylece var olup olmadigi da disari sizmaz.

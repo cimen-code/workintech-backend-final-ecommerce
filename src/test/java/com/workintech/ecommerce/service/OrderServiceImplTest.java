@@ -58,7 +58,7 @@ class OrderServiceImplTest {
 
         ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(saved.capture());
-        assertEquals("1111", saved.getValue().getCardLast4());
+        assertEquals(4111111111111111L, saved.getValue().getCardNo());
         assertEquals(new BigDecimal("145.99"), saved.getValue().getItems().get(0).getUnitPrice());
         assertEquals(2, saved.getValue().getItems().get(0).getCount());
     }
