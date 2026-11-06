@@ -197,11 +197,13 @@ class ApiFlowIT {
     }
 
     @Test
-    void filterFollowsWorkintechRules() throws Exception {
-        assertEquals(12, total("%100"));
-        assertEquals(587, total("_"));
-        assertEquals(113, total("siyah "));
-        assertEquals(11, total("Ş"));
+    void filterIsPlainTextAndIgnoresCase() throws Exception {
+        assertEquals(2, total("%100"));
+        assertEquals(0, total("_"));
+        assertEquals(total("siyah"), total(" siyah "));
+        assertEquals(total("siyah"), total("SİYAH"));
+        assertEquals(total("ş"), total("Ş"));
+        assertEquals(total("elbise"), total("ELBİSE"));
     }
 
     private int total(String filter) throws Exception {
@@ -456,14 +458,20 @@ class ApiFlowIT {
     }
 
     @Test
-    void orderKeepsCardDetailsButNeverCcv() throws Exception {
+    void orderKeepsOnlyLastFourDigitsAndNeverCcv() throws Exception {
         String token = newUserToken();
         JsonNode created = read(jsonRequest(post("/order"), orderBody(createAddress(token)))
             .header(HttpHeaders.AUTHORIZATION, token), 201);
-        assertEquals(4111111111111111L, created.get("card_no").asLong());
+        assertEquals("**** **** **** 1111", created.get("card_no").asText());
         assertTrue(created.hasNonNull("card_expire_month"));
         assertTrue(created.hasNonNull("user_id"));
         assertFalse(created.has("card_ccv"));
+        assertFalse(created.toString().contains("4111111111111111"));
+
+        Number stored = (Number) entityManager
+            .createNativeQuery("select count(*) from orders where card_last4 = '1111' and id = :id")
+            .setParameter("id", created.get("id").asLong()).getSingleResult();
+        assertEquals(1, stored.intValue());
     }
 
     @Test

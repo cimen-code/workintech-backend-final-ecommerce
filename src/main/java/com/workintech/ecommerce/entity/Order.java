@@ -32,8 +32,8 @@ public class Order {
     @Column(name = "order_date", nullable = false)
     private LocalDateTime orderDate;
 
-    @Column(name = "card_no", nullable = false)
-    private Long cardNo;
+    @Column(name = "card_last4", nullable = false)
+    private String cardLast4;
 
     @Column(name = "card_name", nullable = false)
     private String cardName;
@@ -54,12 +54,12 @@ public class Order {
     protected Order() {
     }
 
-    public Order(Long userId, Long addressId, LocalDateTime orderDate, Long cardNo, String cardName,
+    public Order(Long userId, Long addressId, LocalDateTime orderDate, String cardLast4, String cardName,
                  Integer cardExpireMonth, Integer cardExpireYear, BigDecimal price) {
         this.userId = userId;
         this.addressId = addressId;
         this.orderDate = orderDate;
-        this.cardNo = cardNo;
+        this.cardLast4 = cardLast4;
         this.cardName = cardName;
         this.cardExpireMonth = cardExpireMonth;
         this.cardExpireYear = cardExpireYear;
@@ -86,8 +86,8 @@ public class Order {
         return orderDate;
     }
 
-    public Long getCardNo() {
-        return cardNo;
+    public String getCardLast4() {
+        return cardLast4;
     }
 
     public String getCardName() {

@@ -9,7 +9,7 @@ public record OrderResponse(
     Long userId,
     Long addressId,
     LocalDateTime orderDate,
-    Long cardNo,
+    String cardNo,
     String cardName,
     Integer cardExpireMonth,
     Integer cardExpireYear,

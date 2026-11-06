@@ -41,10 +41,6 @@ public class CatalogServiceImpl implements CatalogService {
         "rating", "rating",
         "sell_count", "sell_count");
 
-    // Arama yalniz ASCII harflerde buyuk kucuk ayirmaz; % ve _ joker sayilir.
-    private static final String ASCII_LOWER =
-        "translate(%s, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')";
-
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
 
@@ -79,11 +75,9 @@ public class CatalogServiceImpl implements CatalogService {
             conditions.add("category_id = :category");
             parameters.put("category", categoryId);
         }
-        if (filter != null && !filter.isEmpty()) {
-            String pattern = ASCII_LOWER.formatted(":pattern");
-            conditions.add("(" + ASCII_LOWER.formatted("name") + " LIKE " + pattern
-                + " OR " + ASCII_LOWER.formatted("description") + " LIKE " + pattern + ")");
-            parameters.put("pattern", "%" + filter.replace("\\", "\\\\") + "%");
+        if (filter != null && !filter.isBlank()) {
+            conditions.add("(lower(name) LIKE :pattern ESCAPE '!' OR lower(description) LIKE :pattern ESCAPE '!')");
+            parameters.put("pattern", "%" + likeText(filter) + "%");
         }
         String where = conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
 
@@ -153,6 +147,12 @@ public class CatalogServiceImpl implements CatalogService {
         }
         BigInteger whole = value.toBigInteger();
         return whole.bitLength() < Integer.SIZE - 1 ? whole.longValue() : Integer.MAX_VALUE;
+    }
+
+    // Arama duz metindir: bosluk kirpilir, buyuk kucuk ayrilmaz, % ve _ joker sayilmaz.
+    private String likeText(String filter) {
+        String text = filter.trim().replace('İ', 'i').toLowerCase(Locale.ROOT);
+        return text.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
     private BigDecimal number(String text) {
