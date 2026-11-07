@@ -60,6 +60,7 @@ class CatalogServiceImplTest {
         assertEquals(1, service.parseLimit("1.5"));
         assertNull(service.parseLimit("abc"));
         assertNull(service.parseLimit("-1"));
+        assertNull(service.parseLimit("1e20000000"));
     }
 
     @Test
@@ -67,6 +68,7 @@ class CatalogServiceImplTest {
         assertEquals(0, service.parseOffset(null));
         assertEquals(0, service.parseOffset("abc"));
         assertEquals(12, service.parseOffset("12.5"));
+        assertEquals(0, service.parseOffset("1e20000000"));
         assertThrows(ResponseStatusException.class, () -> service.parseOffset("-1"));
     }
 

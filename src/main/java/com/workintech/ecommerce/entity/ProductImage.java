@@ -31,12 +31,6 @@ public class ProductImage {
     protected ProductImage() {
     }
 
-    public ProductImage(Product product, String url, Integer imageIndex) {
-        this.product = product;
-        this.url = url;
-        this.imageIndex = imageIndex;
-    }
-
     public String getUrl() {
         return url;
     }

@@ -81,7 +81,6 @@ CREATE TABLE cards (
 CREATE INDEX idx_cards_user ON cards (user_id);
 
 -- Sipariste kart numarasinin yalniz son 4 hanesi tutulur; CCV hic saklanmaz.
--- Adres silinse de siparis kaydi kalir (address_id bosalir).
 CREATE TABLE orders (
     id                BIGSERIAL PRIMARY KEY,
     user_id           BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,

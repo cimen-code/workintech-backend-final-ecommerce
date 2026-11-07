@@ -35,7 +35,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Gercek PostgreSQL uzerinde 17 endpoint'in uctan uca testi. Her test geri alinir. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -117,9 +116,6 @@ class ApiFlowIT {
         order.put("products", List.of(Map.of("product_id", 254, "count", 2, "detail", "siyah - lg")));
         return order;
     }
-
-    // ---------------- Katalog ----------------
-
     @Test
     void rolesAreSeeded() throws Exception {
         mvc.perform(get("/roles")).andExpect(status().isOk())
@@ -243,9 +239,6 @@ class ApiFlowIT {
     void unknownPathIsNotFound() throws Exception {
         read(get("/nope"), 404);
     }
-
-    // ---------------- Giris ----------------
-
     @Test
     void publicUserCanLoginWithoutPasswordLeak() throws Exception {
         JsonNode result = read(jsonRequest(post("/login"),
@@ -302,6 +295,10 @@ class ApiFlowIT {
         read(jsonRequest(post("/signup"), Map.of()), 400);
         read(jsonRequest(post("/signup"), Map.of("name", "Te", "email", uniqueEmail(),
             "password", STRONG_PASSWORD, "role_id", 3)), 400);
+        read(jsonRequest(post("/signup"), Map.of("name", "   a   ", "email", uniqueEmail(),
+            "password", STRONG_PASSWORD, "role_id", 3)), 400);
+        read(jsonRequest(post("/signup"), Map.of("name", "Test User", "email", uniqueEmail(),
+            "password", STRONG_PASSWORD, "role_id", 3, "extra", "field")), 400);
         read(jsonRequest(post("/signup"), Map.of("name", "Test User", "email", "not-an-email",
             "password", STRONG_PASSWORD, "role_id", 3)), 400);
         read(jsonRequest(post("/signup"), Map.of("name", "Test User", "email", uniqueEmail(),
@@ -318,9 +315,6 @@ class ApiFlowIT {
             "password", STRONG_PASSWORD, "role_id", 3);
         read(jsonRequest(post("/signup"), signup), 409);
     }
-
-    // ---------------- Korumali yollar ----------------
-
     @Test
     void protectedPathsRequireToken() throws Exception {
         assertEquals("User is not verified", read(get("/user/address"), 401).get("message").asText());
@@ -329,9 +323,6 @@ class ApiFlowIT {
         read(jsonRequest(post("/order"), Map.of()), 401);
         read(delete("/user/address/1"), 401);
     }
-
-    // ---------------- Adres ----------------
-
     @Test
     void addressCrud() throws Exception {
         String token = newUserToken();
@@ -385,9 +376,6 @@ class ApiFlowIT {
         assertEquals(0, read(get("/user/address").header(HttpHeaders.AUTHORIZATION, other), 200).size());
         assertEquals(1, read(get("/user/address").header(HttpHeaders.AUTHORIZATION, owner), 200).size());
     }
-
-    // ---------------- Kart ----------------
-
     @Test
     void cardCrudWithStringIdFromFrontend() throws Exception {
         String token = newUserToken();
@@ -425,9 +413,6 @@ class ApiFlowIT {
             .header(HttpHeaders.AUTHORIZATION, owner), 201).get("id").asLong();
         read(delete("/user/card/" + id).header(HttpHeaders.AUTHORIZATION, newUserToken()), 403);
     }
-
-    // ---------------- Siparis ----------------
-
     @Test
     void orderFlowMatchesFrontend() throws Exception {
         String token = newUserToken();
@@ -483,6 +468,18 @@ class ApiFlowIT {
         noProducts.put("products", List.of());
         read(jsonRequest(post("/order"), noProducts).header(HttpHeaders.AUTHORIZATION, token), 400);
 
+        Map<String, Object> nullProduct = orderBody(addressId);
+        nullProduct.put("products", java.util.Collections.singletonList(null));
+        read(jsonRequest(post("/order"), nullProduct).header(HttpHeaders.AUTHORIZATION, token), 400);
+
+        Map<String, Object> hugePrice = orderBody(addressId);
+        hugePrice.put("price", 99999999999L);
+        read(jsonRequest(post("/order"), hugePrice).header(HttpHeaders.AUTHORIZATION, token), 400);
+
+        Map<String, Object> negativeCard = orderBody(addressId);
+        negativeCard.put("card_no", -5);
+        read(jsonRequest(post("/order"), negativeCard).header(HttpHeaders.AUTHORIZATION, token), 400);
+
         Map<String, Object> badCount = orderBody(addressId);
         badCount.put("products", List.of(Map.of("product_id", 254, "count", 0, "detail", "x")));
         read(jsonRequest(post("/order"), badCount).header(HttpHeaders.AUTHORIZATION, token), 400);
@@ -519,9 +516,6 @@ class ApiFlowIT {
         assertEquals(1, orders.size());
         assertEquals(addressId, orders.get(0).get("address_id").asLong());
     }
-
-    // ---------------- CORS ----------------
-
     @Test
     void preflightAllowsFrontendOrigins() throws Exception {
         for (String origin : List.of("https://workintech-frontend-final-ecommerce.vercel.app", "http://localhost:5173")) {

@@ -28,8 +28,8 @@ import java.util.Map;
 public class CatalogServiceImpl implements CatalogService {
 
     private static final int DEFAULT_LIMIT = 25;
+    private static final int MAX_NUMBER_SCALE = 1000;
 
-    // Sort edilebilen kolonlar. Metin kolonlari bayt sirasina gore siralanir.
     private static final Map<String, String> SORT_COLUMNS = Map.of(
         "id", "id",
         "name", "name COLLATE \"C\"",
@@ -108,7 +108,6 @@ public class CatalogServiceImpl implements CatalogService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
     }
 
-    // "kolon" ya da "kolon:yon". Yon desc degilse artan siralanir.
     String orderBy(String sort) {
         if (sort == null || sort.isBlank()) {
             return "id ASC";
@@ -123,7 +122,6 @@ public class CatalogServiceImpl implements CatalogService {
         return "id".equals(parts[0]) ? "id " + direction : column + " " + direction + ", id ASC";
     }
 
-    // Verilmezse 25, sayi degilse ya da negatifse sinirsiz, ondalikliysa tam kismi.
     Integer parseLimit(String limit) {
         if (limit == null || limit.isBlank()) {
             return DEFAULT_LIMIT;
@@ -136,7 +134,6 @@ public class CatalogServiceImpl implements CatalogService {
         return whole.bitLength() < Integer.SIZE - 1 ? whole.intValue() : null;
     }
 
-    // Verilmezse ya da sayi degilse 0, ondalikliysa tam kismi.
     long parseOffset(String offset) {
         BigDecimal value = offset == null ? null : number(offset);
         if (value == null) {
@@ -149,7 +146,6 @@ public class CatalogServiceImpl implements CatalogService {
         return whole.bitLength() < Integer.SIZE - 1 ? whole.longValue() : Integer.MAX_VALUE;
     }
 
-    // Arama duz metindir: bosluk kirpilir, buyuk kucuk ayrilmaz, % ve _ joker sayilmaz.
     private String likeText(String filter) {
         String text = filter.trim().replace('İ', 'i').toLowerCase(Locale.ROOT);
         return text.replace("!", "!!").replace("%", "!%").replace("_", "!_");
@@ -157,7 +153,8 @@ public class CatalogServiceImpl implements CatalogService {
 
     private BigDecimal number(String text) {
         try {
-            return new BigDecimal(text.trim());
+            BigDecimal value = new BigDecimal(text.trim());
+            return Math.abs(value.scale()) > MAX_NUMBER_SCALE ? null : value;
         } catch (NumberFormatException exception) {
             return null;
         }

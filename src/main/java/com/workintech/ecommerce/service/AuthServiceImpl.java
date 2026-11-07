@@ -73,7 +73,6 @@ public class AuthServiceImpl implements AuthService {
             storeRepository.save(new Store(user, store.name().trim(), store.phone(), store.taxNo(),
                 store.bankAccount().toUpperCase(Locale.ROOT)));
         }
-        // E-posta gonderilmiyor, hesap direkt aktif.
         return new MessageResponse("User created");
     }
 

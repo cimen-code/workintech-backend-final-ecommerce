@@ -62,7 +62,6 @@ public class AddressServiceImpl implements AddressService {
         }
     }
 
-    // Baskasinin kaydi "bulunamadi" doner; boylece var olup olmadigi da disari sizmaz.
     private Address findOwned(Long userId, Long addressId) {
         return addressRepository.findByIdAndUserId(addressId, userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Address not found"));

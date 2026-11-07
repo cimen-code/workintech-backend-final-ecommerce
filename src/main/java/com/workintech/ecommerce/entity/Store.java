@@ -45,27 +45,7 @@ public class Store {
         this.bankAccount = bankAccount;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
     public String getTaxNo() {
         return taxNo;
-    }
-
-    public String getBankAccount() {
-        return bankAccount;
     }
 }

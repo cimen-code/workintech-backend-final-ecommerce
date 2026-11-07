@@ -56,10 +56,6 @@ public class OrderItem {
         return count;
     }
 
-    public String getDetail() {
-        return detail;
-    }
-
     public BigDecimal getUnitPrice() {
         return unitPrice;
     }

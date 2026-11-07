@@ -37,7 +37,6 @@ public class OrderServiceImpl implements OrderService {
         addressRepository.findByIdAndUserId(request.addressId(), userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Address not found"));
 
-        // card_ccv dogrulanir ama hicbir yere yazilmaz; kart numarasinin yalniz son 4 hanesi tutulur.
         Order order = new Order(userId, request.addressId(), request.orderDate(), lastFour(request.cardNo()),
             request.cardName(), request.cardExpireMonth(), request.cardExpireYear(), request.price());
 
